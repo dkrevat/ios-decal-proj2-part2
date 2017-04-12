@@ -32,8 +32,22 @@ class CurrentUser {
         Make a query to Firebase using the 'observeSingleEvent' function (with 'of' parameter set to .value) and retrieve the snapshot that is returned. If the snapshot exists, store its value as a [String:AnyObject] dictionary and iterate through its keys, appending the value corresponding to that key to postArray each time. Finally, call completion(postArray).
     */
     func getReadPostIDs(completion: @escaping ([String]) -> Void) {
-        var postArray: [String] = []
-        // TODO
+        let dbRef = FIRDatabase.database().reference()
+        var postValues: [String] = []
+        dbRef.observeSingleEvent(of: .value, with: { (snapshot) in
+            if snapshot.exists() {
+                if let postDict = snapshot.value as? [String : AnyObject] {
+                    for (_, value) in postDict {
+                        if let val = value as? String {
+                            postValues.append(val)
+                        }
+                        completion(postValues)
+                    }
+                } else {
+                    completion([])
+                }
+            } else {
+                completion([])}})
     }
     
     /*
@@ -45,6 +59,8 @@ class CurrentUser {
     */
     func addNewReadPost(postID: String) {
         // TODO
+        let dbRef = FIRDatabase.database().reference()
+       dbRef.child(firReadPostsNode).childByAutoId().setValue(postID)
     }
     
 }

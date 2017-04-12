@@ -61,6 +61,18 @@ func addPost(postImage: UIImage, thread: String, username: String) {
     let path = "\(firStorageImagesPath)/\(UUID().uuidString)"
     
     // YOUR CODE HERE
+    
+    let df = DateFormatter()
+    df.dateFormat = dateFormat
+    let dateFinal = df.string(from: Date())
+    
+    let dict: [String : AnyObject] = ["imagePath" : path as! AnyObject,
+                                      "thread" : thread as! AnyObject,
+                                      "username" : username as! AnyObject,
+                                      "date" : dateFinal as! AnyObject]
+    
+    dbRef.child(firPostsNode).childByAutoId().setValue(dict)
+    store(data: data, toPath: path)
 }
 
 /*
@@ -75,31 +87,49 @@ func store(data: Data, toPath path: String) {
     let storageRef = FIRStorage.storage().reference()
     
     // YOUR CODE HERE
+    storageRef.child(path).put(data, metadata: nil) { (metadata, error) in if let error = error {
+            print(error)
+        }
+    }
 }
 
 
 /*
-    TODO:
-    
-    This function should query Firebase for all posts and return an array of Post objects. 
-    You should use the function 'observeSingleEvent' (with the 'of' parameter set to .value) to get a snapshot of all of the nodes under "Posts".
-    If the snapshot exists, store its value as a dictionary of type [String:AnyObject], where the string key corresponds to the ID of each post. 
+ TODO:
  
-    Then, make a query for the user's read posts ID's. In the completion handler, complete the following:   
-        - Iterate through each of the keys in the dictionary
-        - For each key:
-            - Create a new Post object, where Posts take in a key, username, imagepath, thread, date string, and read property. For the read property, you should set it to true if the key is contained in the user's read posts ID's and false otherwise.
-            - Append the new post object to the post array.
-        - Finally, call completion(postArray) to return all of the posts.
-        - If any part of the function fails at any point (e.g. snapshot does not exist or snapshot.value is nil), call completion(nil).
+ This function should query Firebase for all posts and return an array of Post objects.
+ You should use the function 'observeSingleEvent' (with the 'of' parameter set to .value) to get a snapshot of all of the nodes under "Posts".
+ If the snapshot exists, store its value as a dictionary of type [String:AnyObject], where the string key corresponds to the ID of each post.
  
-    Remember to use constants defined in Constants.swift to refer to the correct path!
+ Then, make a query for the user's read posts ID's. In the completion handler, complete the following:
+ - Iterate through each of the keys in the dictionary
+ - For each key:
+ - Create a new Post object, where Posts take in a key, username, imagepath, thread, date string, and read property. For the read property, you should set it to true if the key is contained in the user's read posts ID's and false otherwise.
+ - Append the new post object to the post array.
+ - Finally, call completion(postArray) to return all of the posts.
+ - If any part of the function fails at any point (e.g. snapshot does not exist or snapshot.value is nil), call completion(nil).
+ 
+ Remember to use constants defined in Constants.swift to refer to the correct path!
  */
 func getPosts(user: CurrentUser, completion: @escaping ([Post]?) -> Void) {
     let dbRef = FIRDatabase.database().reference()
     var postArray: [Post] = []
     
     // YOUR CODE HERE
+    dbRef.child(firPostsNode).observeSingleEvent(of: .value, with: { snapshot in if snapshot.exists() {
+            if let posts = snapshot.value as? [String: AnyObject] {
+                user.getReadPostIDs(completion: {
+                    readPostArray -> Void in for postID in posts.keys {
+                            let dbPost = posts[postID] as! [String: AnyObject]
+                            let newPost = Post(id: postID, username: dbPost[firUsernameNode] as! String, postImagePath: dbPost[firImagePathNode] as! String, thread: dbPost[firThreadNode] as! String, dateString: dbPost[firDateNode] as! String, read: readPostArray.contains(postID))
+                                postArray.append(newPost)
+                    }; completion(postArray)})
+            } else {
+                completion(nil)
+            } } else {
+            // snapshot.exists() == false
+            completion(nil)
+        } } )
 }
 
 func getDataFromPath(path: String, completion: @escaping (Data?) -> Void) {
